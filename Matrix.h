@@ -1,142 +1,169 @@
 #pragma once
 #include <iostream>
 #include <fstream>
+#include <algorithm>
 #include <cmath>
 
 using namespace std;
 
-template <class T>
+enum class Operation_Type
+{
+	ROW,
+	COLUMN
+};
+
+template <typename T>
+class Matrix;
+
+template <typename T>
+Matrix<T> elementary_matrix(const int size)
+{
+	Matrix<T> result(size);
+	
+	for (int i = 0; i < size; i++)
+	{
+		for (int j = 0; j < size; j++)
+		{
+			result(i, j) = T(i == j);
+		}
+	}
+	
+	return result;
+}
+
+template <typename T>
 class Matrix
 {
 private:
-	int rows, cols;
-	T* pMatrix;
+	int rows, columns;
+	T* values;
 
 public:
-	Matrix(int Rows, int Cols)
+	Matrix(const int rows, const int columns)
 	{
-		rows = Rows;
-		cols = Cols;
+		this->rows = rows;
+		this->columns = columns;
 
-		pMatrix = new T[rows * cols];
+		this->values = new T[this->rows * this->columns];
 	}
 
-	Matrix(int Size)
+	Matrix(const int size) : Matrix(size, size) {}
+
+	Matrix(const Matrix& matrix) : Matrix(matrix.rows, matrix.columns)
 	{
-		rows = Size;
-		cols = Size;
-
-		pMatrix = new T[rows * cols];
-	}
-
-	Matrix(const Matrix& matrix)
-	{
-		rows = matrix.rows;
-		cols = matrix.cols;
-
-		pMatrix = new T[rows * cols];
-
-		for (int i = 0; i < rows * cols; i++)
+		for (int i = 0; i < this->rows * this->columns; i++)
 		{
-			pMatrix[i] = matrix.pMatrix[i];
+			this->values[i] = matrix.values[i];
 		}
 	}
 
 	~Matrix()
 	{
-		delete[] pMatrix;
+		delete[] this->values;
 	}
 
 	Matrix& operator= (const Matrix& matrix)
 	{
 		this->~Matrix();
 
-		rows = matrix.rows;
-		cols = matrix.cols;
+		this->rows = matrix.rows;
+		this->columns = matrix.columns;
 
-		pMatrix = new T[rows * cols];
+		this->values = new T[this->rows * this->columns];
 
-		for (int i = 0; i < rows * cols; i++)
+		for (int i = 0; i < this->rows * this->columns; i++)
 		{
-			pMatrix[i] = matrix.pMatrix[i];
+			this->values[i] = matrix.values[i];
 		}
 
 		return *this;
 	}
 
-	bool operator== (const Matrix& matrix)
+	T& operator() (const int row, const int column) const
 	{
-		if (rows == matrix.rows && cols == matrix.cols)
-		{
-			for (int i = 0; i < rows * cols; i++)
-			{
-				if (pMatrix[i] != matrix.pMatrix[i])
-				{
-					return false;
-				}
-			}
-			return true;
-		}
-		else
+		return this->values[row * this->columns + column];
+	}
+	
+	bool operator== (const Matrix& matrix) const
+	{
+		if (this->rows != matrix.rows || this->columns != matrix.columns)
 		{
 			return false;
 		}
-	}
-
-	bool operator!= (const Matrix& matrix)
-	{
-		return 1 - (*this == matrix);
-	}
-
-	Matrix operator+ (const Matrix& matrix)
-	{
-		if (rows == matrix.rows && cols == matrix.cols)
+		
+		for (int i = 0; i < this->rows * this->columns; i++)
 		{
-			Matrix result(rows, cols);
-
-			for (int i = 0; i < rows * cols; i++)
+			if (this->values[i] != matrix.values[i])
 			{
-				result.pMatrix[i] = pMatrix[i] + matrix.pMatrix[i];
+				return false;
 			}
-
-			return result;
 		}
+
+		return true;
 	}
 
-	Matrix operator- (const Matrix& matrix)
+	bool operator!= (const Matrix& matrix) const
 	{
-		if (rows == matrix.rows && cols == matrix.cols)
-		{
-			Matrix result(rows, cols);
-
-			for (int i = 0; i < rows * cols; i++)
-			{
-				result.pMatrix[i] = pMatrix[i] - matrix.pMatrix[i];
-			}
-
-			return result;
-		}
+		return !(*this == matrix);
 	}
 
-	Matrix operator* (const Matrix& matrix)
+	Matrix operator+ (const Matrix& matrix) const
 	{
-		if (cols == matrix.rows)
+		if (this->rows != matrix.rows || this->columns != matrix.columns)
 		{
-			Matrix result(rows, matrix.cols);
+			throw std::exception("matrices have not equal number of rows and columns");
+		}
+		
+		Matrix result(this->rows, this->columns);
 
-			for (int i = 0; i < rows; i++)
+		for (int i = 0; i < this->rows * this->columns; i++)
+		{
+			result.values[i] = this->values[i] + matrix.values[i];
+		}
+
+		return result;
+	}
+
+	Matrix operator- (const Matrix& matrix) const
+	{
+		if (this->rows != matrix.rows || this->columns != matrix.columns)
+		{
+			throw std::exception("matrices have not equal number of rows and columns");
+		}
+		
+		Matrix result(this->rows, this->columns);
+
+		for (int i = 0; i < this->rows * this->columns; i++)
+		{
+			result.values[i] = this->values[i] - matrix.values[i];
+		}
+
+		return result;
+	}
+
+	Matrix operator* (const Matrix& matrix) const
+	{
+		if (this->columns != matrix.rows)
+		{
+			throw std::exception("matrices have incorrect number of rows and columns");
+		}
+		
+		Matrix result(this->rows, matrix.columns);
+
+		for (int i = 0; i < this->rows; i++)
+		{
+			for (int j = 0; j < matrix.columns; j++)
 			{
-				for (int j = 0; j < matrix.cols; j++)
+				result(i, j) = T();
+
+				for (int k = 0; k < this->columns; k++)
 				{
-					result.pMatrix[i * result.cols + j] = 0;
-					for (int k = 0; k < cols; k++)
-					{
-						result.pMatrix[i * result.cols + j] += pMatrix[i * cols + k] * matrix.pMatrix[k * matrix.cols + j];
-					}
+					result(i, j) += this->operator()(i, k) * matrix(k, j);
 				}
 			}
-			return result;
 		}
+
+		return result;
 	}
 
 	void operator*= (const Matrix& matrix)
@@ -144,278 +171,281 @@ public:
 		*this = *this * matrix;
 	}
 
-	Matrix operator^ (const int extent)
+	Matrix operator^ (const int extent) const
 	{
-		if (rows == cols)
+		if (extent == 0)
 		{
-			if (extent == 0)
-			{
-				Matrix result(rows);
-
-				for (int i = 0; i < rows; i++)
-				{
-					for (int j = 0; j < cols; j++)
-					{
-						result.pMatrix[i * cols + j] = i == j;
-					}
-				}
-
-				return result;
-			}
-
-			else if (extent > 0)
-			{
-				Matrix result = *this;
-
-				for (int i = 1; i < extent; i++)
-				{
-					result *= *this;
-				}
-
-				return result;
-			}
-
-			else
-			{
-				return this->Inv() ^ -extent;
-			}
+			return elementary_matrix<T>(this->rows);
 		}
+
+		else if (extent > 0)
+		{
+			Matrix result = *this;
+
+			for (int i = 1; i < extent; i++)
+			{
+				result *= *this;
+			}
+
+			return result;
+		}
+
+		else
+		{
+			return this->inverted() ^ -extent;
+		}
+	}
+
+	Matrix operator/ (const Matrix& matrix) const
+	{
+		return *this * matrix.inverted();
 	}
 
 	void operator*= (const T& value)
 	{
-		for (int i = 0; i < rows * cols; i++)
+		for (int i = 0; i < this->rows * this->columns; i++)
 		{
-			pMatrix[i] *= value;
+			this->values[i] *= value;
 		}
 	}
 
 	void operator/= (const T& value)
 	{
-		for (int i = 0; i < rows * cols; i++)
+		for (int i = 0; i < this->rows * this->columns; i++)
 		{
-			pMatrix[i] /= value;
+			this->values[i] /= value;
 		}
 	}
 
-	void FirstE(int num1, int num2, bool isRow)
+	void first_elementary(const int number1, const int number2, Operation_Type type)
 	{
-		if (isRow)
+		if (type == Operation_Type::ROW)
 		{
-			if (0 < num1 && num1 <= rows && 0 < num2 && num2 <= rows)
+			if (number1 < 0 || number1 >= this->rows || number2 < 0 || number2 >= this->columns)
 			{
-				T swap;
-				for (int i = 0; i < cols; i++)
-				{
-					swap = pMatrix[cols * (num1 - 1) + i];
-					pMatrix[cols * (num1 - 1) + i] = pMatrix[cols * (num2 - 1) + i];
-					pMatrix[cols * (num2 - 1) + i] = swap;
-				}
+				throw std::exception("incorrect function arguments");
+			}
+			
+			for (int i = 0; i < this->columns; i++)
+			{
+				swap(this->operator()(number1, i), this->operator()(number2, i));
 			}
 		}
-		else
+		
+		if (type == Operation_Type::COLUMN)
 		{
-			if (0 < num1 && num1 <= cols && 0 < num2 && num2 <= cols)
+			if (number1 < 0 || number1 >= this->columns || number2 < 0 || number2 >= this->columns)
 			{
-				T swap;
-				for (int i = 0; i < rows; i++)
-				{
-					swap = pMatrix[cols * i + num1 - 1];
-					pMatrix[cols * i + num1 - 1] = pMatrix[cols * i + num2 - 1];
-					pMatrix[cols * i + num2 - 1] = swap;
-				}
+				throw std::exception("incorrect function arguments");
 			}
-		}
-	}
-
-	void SecondE(int num, T value, bool isRow)
-	{
-		if (isRow)
-		{
-			if (0 < num && num <= rows)
+			
+			for (int i = 0; i < this->rows; i++)
 			{
-				for (int i = 0; i < cols; i++)
-				{
-					pMatrix[cols * (num - 1) + i] *= value;
-				}
-			}
-		}
-		else
-		{
-			if (0 < num && num <= cols)
-			{
-				for (int i = 0; i < rows; i++)
-				{
-					pMatrix[cols * i + num - 1] *= value;
-				}
+				swap(this->operator()(i, number1), this->operator()(i, number2));
 			}
 		}
 	}
 
-	void ThirdE(int num1, int num2, T value, bool isRow)
+	void second_elementary(const int number, const T& value, Operation_Type type)
 	{
-		if (isRow)
+		if (type == Operation_Type::ROW)
 		{
-			if (0 < num1 && num1 <= rows && 0 < num2 && num2 <= rows)
+			if (number < 0 || number >= this->rows)
 			{
-				for (int i = 0; i < cols; i++)
-				{
-					pMatrix[cols * (num1 - 1) + i] += value * pMatrix[cols * (num2 - 1) + i];
-				}
+				throw std::exception("incorrect function arguments");
+			}
+			
+			for (int i = 0; i < this->columns; i++)
+			{
+				this->operator()(number, i) *= value;
 			}
 		}
-		else
+		
+		if (type == Operation_Type::COLUMN)
 		{
-			if (0 < num1 && num1 <= cols && 0 < num2 && num2 <= cols)
+			if (number < 0 || number >= this->columns)
 			{
-				for (int i = 0; i < rows; i++)
-				{
-					pMatrix[cols * i + num1 - 1] += value * pMatrix[cols * i + num2 - 1];
-				}
+				throw std::exception("incorrect function arguments");
+			}
+			
+			for (int i = 0; i < this->rows; i++)
+			{
+				this->operator()(i, number) *= value;
 			}
 		}
 	}
 
-	Matrix Transpose()
+	void third_elementary(const int number1, const int number2, const T& value, Operation_Type type)
 	{
-		Matrix result(cols, rows);
-
-		for (int i = 0; i < rows; i++)
+		if (type == Operation_Type::ROW)
 		{
-			for (int j = 0; j < cols; j++)
+			if (number1 < 0 || number1 >= this->rows || number2 < 0 || number1 >= this->rows)
 			{
-				result.pMatrix[j * rows + i] = pMatrix[i * cols + j];
+				throw std::exception("incorrect function arguments");
+			}
+			
+			for (int i = 0; i < this->columns; i++)
+			{
+				this->operator()(number1, i) += value * this->operator()(number2, i);
+			}
+		}
+		
+		if (type == Operation_Type::COLUMN)
+		{
+			if (number1 < 0 || number1 >= this->columns || number2 < 0 || number2 >= this->columns)
+			{
+				throw std::exception("incorrect function arguments");
+			}
+			
+			for (int i = 0; i < this->rows; i++)
+			{
+				this->operator()(i, number1) += value * this->operator()(i, number2);
+			}
+		}
+	}
+
+	Matrix transposed() const
+	{
+		Matrix result(this->columns, this->rows);
+
+		for (int i = 0; i < this->rows; i++)
+		{
+			for (int j = 0; j < this->columns; j++)
+			{
+				result(j, i) = this->operator()(i, j);
 			}
 		}
 
 		return result;
 	}
 
-	Matrix Minor_Matrix(int Row, int Col)
+	Matrix minor_matrix(const int row, const int column) const
 	{
-		if (Row <= rows && Col <= cols)
+		if (row < 0 || row >= this->rows || column < 0 || column >= this->columns)
 		{
-			Matrix result(rows - 1, cols - 1);
+			throw std::exception("incorrect function arguments");
+		}
+		
+		Matrix result(this->rows - 1, this->columns - 1);
 
-			int curi = 0, curj = 0;
+		int curi = 0, curj = 0;
 
-			for (int i = 0; i < rows; i++)
+		for (int i = 0; i < this->rows; i++)
+		{
+			if (i == row)
 			{
-				if (i == Row - 1)
-					curi--;
+				curi--;
+			}
 
-				for (int j = 0; j < cols; j++)
+			for (int j = 0; j < this->columns; j++)
+			{
+				if (j == column)
 				{
-					if (j == Col - 1)
-						curj--;
-
-					if (i != Row - 1 && j != Col - 1)
-						result.pMatrix[curi * (cols - 1) + curj] = pMatrix[i * cols + j];
-
-					curj++;
+					curj--;
 				}
 
-				curj = 0;
-				curi++;
-			}
-
-			return result;
-		}
-	}
-
-	T Minor(int Row, int Col)
-	{
-		if (rows == cols && Row <= rows && Col <= cols)
-		{
-			return this->Minor_Matrix(Row, Col).Det();
-		}
-	}
-
-	T AlgCompl(int Row, int Col)
-	{
-		if (rows == cols && Row <= rows && Col <= cols)
-		{
-			return (((Row + Col) % 2 == 0) ? 1 : -1) * this->Minor(Row, Col);
-		}
-	}
-
-	T Det()
-	{
-		if (rows == cols)
-		{
-			if (rows == 1)
-			{
-				return pMatrix[0];
-			}
-
-			else if (rows == 2)
-			{
-				return pMatrix[0] * pMatrix[3] - pMatrix[1] * pMatrix[2];
-			}
-
-			else
-			{
-				T det = pMatrix[0] * AlgCompl(1, 1);
-
-				for (int i = 2; i <= rows; i++)
+				if (i != row && j != column)
 				{
-					det += pMatrix[(i - 1) * cols] * AlgCompl(i, 1);
+					result(curi, curj) = this->operator()(i, j);
 				}
 
-				return det;
+				curj++;
 			}
+
+			curj = 0;
+			
+			curi++;
 		}
+
+		return result;
 	}
 
-	Matrix Inv()
+	T minor(const int row, const int column) const
 	{
-		if (rows == cols)
+		return this->minor_matrix(row, column).det();
+	}
+
+	T algebraic_complement(const int row, const int column) const
+	{
+		return (((row + column) % 2 == 0) ? 1 : -1) * this->minor(row, column);
+	}
+
+	T det() const
+	{
+		if (this->rows != this->columns)
 		{
-			T det = this->Det();
+			throw std::exception("matrix is not square");
+		}
+		
+		if (this->rows == 1)
+		{
+			return this->operator()(0, 0);
+		}
 
-			if (det != 0)
+		else
+		{
+			T det = T();
+
+			for (int i = 0; i < this->rows; i++)
 			{
-				Matrix result(rows);
-
-				for (int i = 0; i < rows; i++)
-				{
-					for (int j = 0; j < cols; j++)
-					{
-						result.pMatrix[i * cols + j] = this->AlgCompl(j + 1, i + 1);
-					}
-				}
-
-				result /= det;
-
-				return result;
+				det += this->operator()(i, 0) * algebraic_complement(i, 0);
 			}
+
+			return det;
 		}
 	}
 
-	int Rank()
+	Matrix inverted() const
 	{
-		if (rows <= cols)
+		T det = this->det();
+
+		if (det == T())
+		{
+			throw std::exception("matrix is not invertible");
+		}
+		
+		Matrix result(this->rows);
+
+		for (int i = 0; i < this->rows; i++)
+		{
+			for (int j = 0; j < this->columns; j++)
+			{
+				result(i, j) = this->algebraic_complement(j, i);
+			}
+		}
+
+		result /= det;
+
+		return result;
+	}
+
+	int rank() const
+	{
+		if (this->rows <= this->columns)
 		{
 			Matrix result = *this;
-			int rank = rows;
+			
+			int rank = this->rows;
+			
 			bool check;
 
-			for (int i = 0; i < rows; i++)
+			for (int i = 0; i < this->rows; i++)
 			{
-				for (int j = i + 1; j < rows; j++)
+				for (int j = i + 1; j < this->rows; j++)
 				{
-					result.ThirdE(j + 1, i + 1, -result.pMatrix[j * cols + i] / result.pMatrix[i * (cols + 1)], 1);
+					result.third_elementary(j, i, -result(j, i) / result(i, i), Operation_Type::ROW);
 				}
 			}
 
-			for (int i = 0; i < rows; i++)
+			for (int i = 0; i < this->rows; i++)
 			{
 				check = 0;
-				for (int j = 0; j < cols; j++)
+				
+				for (int j = 0; j < this->columns; j++)
 				{
-					if (result.pMatrix[i * cols + j] != 0)
+					if (result(i, j) != T())
 					{
-						check = 1;
+						check = true;
 						break;
 					}
 				}
@@ -431,114 +461,107 @@ public:
 
 		else
 		{
-			return this->Transpose().Rank();
+			return this->transposed().rank();
 		}
 	}
 
-	Matrix ToTriangular()
+	Matrix to_triangular() const
 	{
-		if (rows == cols)
+		if (this->rows != this->columns)
 		{
-			Matrix result = *this;
+			throw std::exception("matrix is not square");
+		}
+		
+		Matrix result = *this;
 
-			for (int i = 0; i < rows; i++)
+		for (int i = 0; i < this->rows; i++)
+		{
+			for (int j = i + 1; j < this->rows; j++)
 			{
-				for (int j = i + 1; j < rows; j++)
-				{
-					result.ThirdE(j + 1, i + 1, -result.pMatrix[j * cols + i] / result.pMatrix[i * (cols + 1)], 1);
-				}
+				result.third_elementary(j, i, -result(j, i) / result(i, i), Operation_Type::ROW);
 			}
-
-			return result;
 		}
+
+		return result;
 	}
 
-	Matrix ToDiagonal()
+	Matrix to_diagonal() const
 	{
-		if (rows == cols)
-		{
-			Matrix result = *this;
+		Matrix result = *this;
 
-			result = result.ToTriangular().Transpose();
+		result = result.to_triangular().transposed();
 
-			return result.ToTriangular();
-		}
+		return result.to_triangular();
 	}
 
-	Matrix LU_L()
+	Matrix LU_L() const
 	{
-		if (rows == cols)
+		if (this->rows != this->columns)
 		{
-			Matrix result(rows), temp = *this;
+			throw std::exception("matrix is not square");
+		}
 
-			for (int i = 0; i < rows; i++)
+		Matrix result = elementary_matrix<T>(this->rows), temp = *this;
+
+		for (int i = 0; i < this->rows; i++)
+		{
+			for (int j = i + 1; j < this->rows; j++)
 			{
-				for (int j = 0; j < cols; j++)
-				{
-					result.pMatrix[i * cols + j] = i == j;
-				}
+				result(j, i) = temp(j, i) / temp(i, i);
+				
+				temp.third_elementary(j, i, -temp(j, i) / temp(i, i), Operation_Type::ROW);
 			}
-
-			for (int i = 0; i < rows; i++)
-			{
-				for (int j = i + 1; j < rows; j++)
-				{
-					result.pMatrix[j * cols + i] = temp.pMatrix[j * cols + i] / temp.pMatrix[i * (cols + 1)];
-					temp.ThirdE(j + 1, i + 1, -temp.pMatrix[j * cols + i] / temp.pMatrix[i * (cols + 1)], 1);
-				}
-			}
-
-			return result;
 		}
+
+		return result;
 	}
 
-	Matrix LU_U()
+	Matrix LU_U() const
 	{
-		if (rows == cols)
-		{
-			return this->ToTriangular();
-		}
+		return this->to_triangular();
 	}
 
-	Matrix Cholesky()
+	Matrix Cholesky() const
 	{
-		if (*this == this->Transpose())
+		if (*this != this->transposed())
 		{
-			Matrix result = *this;
+			throw std::exception("matrix is not symmetric");
+		}
 
-			for (int i = 0; i < rows; i++)
+		Matrix result = *this;
+
+		for (int i = 0; i < this->rows; i++)
+		{
+			for (int j = 0; j < this->columns; j++)
 			{
-				for (int j = 0; j < cols; j++)
+				if (i == j)
 				{
-					if (i == j)
+					for (int k = 0; k < j; k++)
 					{
-						for (int k = 0; k < j; k++)
-						{
-							result.pMatrix[i * cols + j] -= pow(result.pMatrix[i * cols + k], 2);
-						}
-
-						result.pMatrix[i * cols + j] = sqrt(result.pMatrix[i * cols + j]);
+						result(i, j) -= pow(result(i, k), 2);
 					}
 
-					else if (i > j)
-					{
-						for (int k = 0; k < j; k++)
-						{
-							result.pMatrix[i * cols + j] -= result.pMatrix[i * cols + k] * result.pMatrix[j * cols + k];
-						}
+					result(i, j) = sqrt(result(i, j));
+				}
 
-						result.pMatrix[i * cols + j] /= result.pMatrix[j * cols + j];
+				else if (i > j)
+				{
+					for (int k = 0; k < j; k++)
+					{
+						result(i, j) -= result(i, k) * result(j, k);
 					}
 
-					else
-					{
-						result.pMatrix[i * cols + j] = 0;
-					}
+					result(i, j) /= result(j, j);
+				}
+
+				else
+				{
+					result(i, j) = T();
 				}
 			}
-
-			return result;
 		}
+
+		return result;
 	}
 
 	friend istream& operator>> <> (istream& s, Matrix& matrix);
@@ -551,10 +574,11 @@ public:
 template <typename T>
 istream& operator>> (istream& s, Matrix<T>& matrix)
 {
-	for (int i = 0; i < matrix.rows * matrix.cols; i++)
+	for (int i = 0; i < matrix.rows * matrix.columns; i++)
 	{
-		s >> matrix.pMatrix[i];
+		s >> matrix.values[i];
 	}
+	
 	return s;
 }
 
@@ -563,22 +587,25 @@ ostream& operator<< <> (ostream& s, const Matrix<T>& matrix)
 {
 	for (int i = 0; i < matrix.rows; i++)
 	{
-		for (int j = 0; j < matrix.cols; j++)
+		for (int j = 0; j < matrix.columns; j++)
 		{
-			s << matrix.pMatrix[i * matrix.cols + j] << " ";
+			s << matrix(i, j) << " ";
 		}
+		
 		s << endl;
 	}
+	
 	return s;
 }
 
 template <typename T>
 ifstream& operator>> (ifstream& fs, Matrix<T>& matrix)
 {
-	for (int i = 0; i < matrix.rows * matrix.cols; i++)
+	for (int i = 0; i < matrix.rows * matrix.columns; i++)
 	{
-		fs >> matrix.pMatrix[i];
+		fs >> matrix.values[i];
 	}
+	
 	return fs;
 }
 
@@ -587,11 +614,13 @@ ofstream& operator<< <> (ofstream& fs, const Matrix<T>& matrix)
 {
 	for (int i = 0; i < matrix.rows; i++)
 	{
-		for (int j = 0; j < matrix.cols; j++)
+		for (int j = 0; j < matrix.columns; j++)
 		{
-			fs << matrix.pMatrix[i * matrix.cols + j] << " ";
+			fs << matrix(i, j) << " ";
 		}
+		
 		fs << endl;
 	}
+	
 	return fs;
 }
