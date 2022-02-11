@@ -39,6 +39,12 @@ private:
 	T* values;
 
 public:
+	Matrix()
+	{
+		this->rows = this->columns = 0;
+		this->values = nullptr;
+	}
+	
 	Matrix(const int rows, const int columns)
 	{
 		this->rows = rows;
