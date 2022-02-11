@@ -570,6 +570,50 @@ public:
 		return result;
 	}
 
+	Matrix Frobenius() const
+	{
+		if (this->rows != this->columns)
+		{
+			throw std::exception("matrix is not square");
+		}
+
+		Matrix result = *this;
+
+		Matrix E = elementary_matrix<T>(this->rows);
+
+		pair<Matrix, Matrix> *M = new pair<Matrix, Matrix>[this->rows - 1];
+
+		for (int i = 0; i < this->rows - 1; i++)
+		{
+			M[i].first = M[i].second = E;
+		}
+
+		for (int i = this->rows - 2; i >= 0; i--)
+		{
+			for (int j = 0; j < this->rows; j++)
+			{
+				if (i == j)
+				{
+					M[i].first(i, j) /= result(i + 1, j);
+				}
+
+				else
+				{
+					M[i].first(i, j) = -result(i + 1, j) / result(i + 1, i);
+				}
+
+				M[i].second(i, j) = result(i + 1, j);
+			}
+
+			result *= M[i].first;
+			result = M[i].second * result;
+		}
+
+		delete[] M;
+
+		return result;
+	}
+
 	friend istream& operator>> <> (istream& s, Matrix& matrix);
 	friend ostream& operator<< <> (ostream& s, const Matrix& matrix);
 
